@@ -11,7 +11,7 @@ const defaultSettings = { mode: 'choice', category: 'all', length: '10', theme: 
 const savedSettings = JSON.parse(localStorage.getItem(STORAGE.settings) || 'null');
 const state = {
   screen: 'home',
-  settings: { ...defaultSettings, ...(savedSettings || {}) },x
+  settings: { ...defaultSettings, ...(savedSettings || {}) },
   quiz: null,
   studyCategory: 'all'
 };
