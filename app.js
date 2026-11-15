@@ -16,7 +16,7 @@ const state = {
   studyCategory: 'all'
 };
 
-footerCount.textContent = `${QUESTION_BANK_SIZE} source labels · local progress saved`;
+footerCount.textContent = `${QUESTION_BANK_SIZE} source images · local progress saved`;
 if (state.settings.theme === 'dark') document.body.classList.add('dark');
 
 function saveSettings() {
@@ -38,6 +38,10 @@ function shuffle(list) {
 
 function filteredSpecies(category = state.settings.category) {
   return category === 'all' ? SPECIES : SPECIES.filter((item) => item.category === category);
+}
+
+function filteredBank(category = state.settings.category) {
+  return category === 'all' ? QUESTION_BANK : QUESTION_BANK.filter((item) => item.category === category);
 }
 
 function formatCategory(category) {
@@ -91,13 +95,13 @@ function homeModeCard(mode, icon, title, description) {
 }
 
 function supportedLengthOptions() {
-  const count = filteredSpecies().length;
+  const count = filteredBank().length;
   return [10, 20, 30].map((length) => `<option value="${length}" ${Number(state.settings.length) === length ? 'selected' : ''} ${count < length ? 'disabled' : ''}>${length} questions${count < length ? ` · only ${count} available` : ''}</option>`).join('')
     + `<option value="all" ${state.settings.length === 'all' ? 'selected' : ''}>All available · ${count}</option>`;
 }
 
 function renderHome() {
-  const count = filteredSpecies().length;
+  const count = filteredBank().length;
   const savedWrong = JSON.parse(localStorage.getItem(STORAGE.incorrect) || '{}')[state.settings.mode] || [];
   app.innerHTML = `<section class="hero">
     <div class="hero-copy"><div class="eyebrow">Finnish species study lab</div><h1>See it.<br><span class="gradient-text">Name it.</span></h1><p>Learn to identify species, one picture at a time. A calm, focused quiz built from your four study materials.</p></div>
@@ -110,20 +114,21 @@ function renderHome() {
       <div class="field"><label for="category">Question bank</label><select id="category"><option value="all" ${state.settings.category === 'all' ? 'selected' : ''}>All species · mixed</option>${Object.entries(CATEGORY_META).filter(([key]) => key !== 'all').map(([key, meta]) => `<option value="${key}" ${state.settings.category === key ? 'selected' : ''}>${meta.label}</option>`).join('')}</select></div>
       <div class="field"><label for="length">Quiz length</label><select id="length">${supportedLengthOptions()}</select></div>
     </div>
-    <div class="start-row"><div class="bank-note"><strong>${count}</strong> source labels ready in this bank · <strong>+10</strong> per correct answer${savedWrong.length ? `<br><button class="ghost-button" data-action="practice-saved" style="margin-top:8px;padding:7px 10px;font-size:11px">Practice ${savedWrong.length} saved miss${savedWrong.length === 1 ? '' : 'es'} ↗</button>` : ''}</div><button class="primary-button" data-action="start">Start quiz <span aria-hidden="true">→</span></button></div>
+    <div class="start-row"><div class="bank-note"><strong>${count}</strong> source images ready in this bank · <strong>+10</strong> per correct answer${savedWrong.length ? `<br><button class="ghost-button" data-action="practice-saved" style="margin-top:8px;padding:7px 10px;font-size:11px">Practice ${savedWrong.length} saved miss${savedWrong.length === 1 ? '' : 'es'} ↗</button>` : ''}</div><button class="primary-button" data-action="start">Start quiz <span aria-hidden="true">→</span></button></div>
   </section>`;
 }
 
 function createQuiz() {
-  const pool = shuffle(filteredSpecies());
+  const pool = shuffle(filteredBank());
   const length = state.settings.length === 'all' ? pool.length : Math.min(Number(state.settings.length), pool.length);
   state.quiz = { mode: state.settings.mode, category: state.settings.category, questions: pool.slice(0, length), index: 0, score: 0, correct: 0, incorrect: 0, skipped: 0, hints: 0, hintOpen: false, hintUsed: false, answered: false, missingImage: false, selectedChoice: null, typedAnswer: '', wrongItems: [] };
   setScreen('quiz');
 }
 
 function getDistractors(item) {
-  const sameCategory = filteredSpecies(item.category).filter((candidate) => candidate.id !== item.id);
-  const broader = SPECIES.filter((candidate) => candidate.id !== item.id && candidate.category !== item.category);
+  const baseId = item.baseId || item.id;
+  const sameCategory = filteredSpecies(item.category).filter((candidate) => candidate.id !== baseId);
+  const broader = SPECIES.filter((candidate) => candidate.id !== baseId && candidate.category !== item.category);
   return shuffle([...sameCategory, ...broader]).slice(0, 3);
 }
 
@@ -234,8 +239,8 @@ document.addEventListener('click', (event) => {
   if (target.dataset.mode) { state.settings.mode = target.dataset.mode; saveSettings(); renderHome(); return; }
   if (target.dataset.studyCategory) { state.studyCategory = target.dataset.studyCategory; renderStudy(); return; }
   if (target.dataset.choice) { state.quiz.selectedChoice = target.dataset.choice; renderQuiz(); return; }
-  if (target.dataset.studyId) { state.studyCategory = SPECIES.find((item) => item.id === target.dataset.studyId)?.category || 'all'; setScreen('study'); return; }
-  if (target.dataset.reviewId) { const item = SPECIES.find((candidate) => candidate.id === target.dataset.reviewId); if (item) practiceItems([item]); return; }
+  if (target.dataset.studyId) { const item = QUESTION_BANK.find((candidate) => candidate.id === target.dataset.studyId) || SPECIES.find((candidate) => candidate.id === target.dataset.studyId); state.studyCategory = item?.category || 'all'; setScreen('study'); return; }
+  if (target.dataset.reviewId) { const item = QUESTION_BANK.find((candidate) => candidate.id === target.dataset.reviewId) || SPECIES.find((candidate) => candidate.id === target.dataset.reviewId); if (item) practiceItems([item]); return; }
   const action = target.dataset.action;
   if (action === 'home') { state.quiz = null; setScreen('home'); }
   if (action === 'study') { state.studyCategory = 'all'; setScreen('study'); }
@@ -252,13 +257,13 @@ document.addEventListener('click', (event) => {
   if (action === 'practice-all') practiceItems(state.quiz.wrongItems);
   if (action === 'practice-saved') {
     const saved = JSON.parse(localStorage.getItem(STORAGE.incorrect) || '{}')[state.settings.mode] || [];
-    const items = saved.map((id) => SPECIES.find((item) => item.id === id)).filter(Boolean);
+    const items = saved.map((id) => QUESTION_BANK.find((item) => item.id === id) || SPECIES.find((item) => item.id === id)).filter(Boolean);
     if (items.length) practiceItems(items);
   }
 });
 
 document.addEventListener('change', (event) => {
-  if (event.target.id === 'category') { state.settings.category = event.target.value; if (state.settings.length !== 'all' && Number(state.settings.length) > filteredSpecies().length) state.settings.length = 'all'; saveSettings(); renderHome(); }
+  if (event.target.id === 'category') { state.settings.category = event.target.value; if (state.settings.length !== 'all' && Number(state.settings.length) > filteredBank().length) state.settings.length = 'all'; saveSettings(); renderHome(); }
   if (event.target.id === 'length') { state.settings.length = event.target.value; saveSettings(); }
 });
 

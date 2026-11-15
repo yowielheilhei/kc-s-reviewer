@@ -145,4 +145,33 @@ const SPECIES = [
   species('rantakaarme', 'Rantakäärme', 'Natrix natrix', 'vertebrates', 50, 'A slender snake with a lighter collar behind the head.')
 ];
 
-const QUESTION_BANK_SIZE = SPECIES.length;
+// The PDFs contain 202 extracted photographs. Keep one canonical entry per
+// named species for study mode, then turn every photograph into its own quiz
+// card so the complete source image set is testable.
+const ASSET_QUESTIONS = SPECIES.flatMap((item) => item.images.map((image, index) => ({
+  ...item,
+  id: `${item.id}-asset-${index + 1}`,
+  baseId: item.id,
+  images: [image],
+  variant: index + 1
+})));
+
+// This is a comparison photograph from vertebrates PDF page 42. It shows the
+// two small mammals being compared on that page rather than a single species.
+const COMPARISON_QUESTION = {
+  id: 'metsamyyra-metsahiiri-comparison-asset-1',
+  baseId: 'metsamyyra',
+  name: 'Metsämyyrä / metsähiiri',
+  scientific: 'Myodes glareolus / Apodemus flavicollis',
+  category: 'vertebrates',
+  sourceFile: SOURCE_FILES.vertebrates,
+  page: 42,
+  images: ['assets/vertebrates-p42-i1.jpg'],
+  hint: 'This source photograph is used for the PDF comparison of metsämyyrä and metsähiiri.',
+  aliases: ['metsämyyrä', 'metsähiiri'],
+  group: true,
+  variant: 1
+};
+
+const QUESTION_BANK = [...ASSET_QUESTIONS, COMPARISON_QUESTION];
+const QUESTION_BANK_SIZE = QUESTION_BANK.length;
